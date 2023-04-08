@@ -1,1 +1,1 @@
-A GitHub Action for building [RealKing-kernel-SM8250-munch-mi](https://github.com/Rohail33/RealKing-kernel-SM8250/tree/munch-mi)
+This repo fork [RK-KernelSU_Action](https://github.com/CHIZI-0618/RK-KernelSU_Action)

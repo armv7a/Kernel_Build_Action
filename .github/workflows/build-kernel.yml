@@ -7,15 +7,15 @@ on:
       KERNEL_SOURCE:
         description: 'Kernel Source'
         required: true
-        default: 'Rohail33/RealKing-kernel-SM8250'
+        default: 'ArrowOS-MiPa-Edition/android_kernel_xiaomi_alioth'
       KERNEL_SOURCE_BRANCH:
         description: 'Branch'
         required: true
-        default: 'munch-mi'
+        default: 'arrow-13.0'
       KERNEL_DEFCONFIG:
         description: 'Defconfig'
         required: true
-        default: 'vendor/munch_defconfig'
+        default: 'vendor/arrow_alioth_defconfig'
       TARGET_ARCH:
         description: 'Target ARCH'
         required: true
@@ -23,11 +23,15 @@ on:
       KERNEL_FILE:
         description: 'Your kernel out image name'
         required: true
-        default: 'Image.gz'
+        default: 'Image'
       CLANG_URL:
         description: 'Clang URL'
         required: true
-        default: 'https://github.com/ZyCromerZ/Clang/releases/download/17.0.0-20230217-release/Clang-17.0.0-20230217.tar.gz'
+        default: 'https://codeberg.org/Mandi-Sa/clang'
+      CLANG_BRANCH:
+        description: 'Clang BRANCH'
+        required: true
+        default: 'amd64-kernel-arm'
       BUILD_EXTRA_COMMAND:
         description: 'Extra build commands(e.g. LLVM=1 LLVM_IAS=1)'
         required: false
@@ -35,17 +39,12 @@ on:
       USE_KPROBES:
         description: 'Use Kprobes'
         required: false
-        default: 'true'
+        default: 'false'
         type: boolean
       USE_KERNELSU:
         description: 'Use KernelSU'
         required: true
         default: 'true'
-        type: boolean
-      SSH:
-        description: 'SSH connection to Actions'
-        required: false
-        default: 'false'
         type: boolean
 
 jobs:
@@ -63,23 +62,21 @@ jobs:
         echo "TARGET_ARCH=${{ github.event.inputs.TARGET_ARCH }}" >> $GITHUB_ENV
         echo "KERNEL_FILE=${{ github.event.inputs.KERNEL_FILE }}" >> $GITHUB_ENV
         echo "CLANG_URL=${{ github.event.inputs.CLANG_URL }}" >> $GITHUB_ENV
+        echo "CLANG_BRANCH=${{ github.event.inputs.CLANG_BRANCH }}" >> $GITHUB_ENV
         echo "BUILD_EXTRA_COMMAND=${{ github.event.inputs.BUILD_EXTRA_COMMAND }}" >> $GITHUB_ENV
         echo "USE_KPROBES=${{ github.event.inputs.USE_KPROBES }}" >> $GITHUB_ENV
         echo "USE_KERNELSU=${{ github.event.inputs.USE_KERNELSU }}" >> $GITHUB_ENV
-        echo "SSH=${{ github.event.inputs.SSH }}" >> $GITHUB_ENV
 
     - name: Setup build kernel environment
       run: |
         echo "BUILD_TIME=$(TZ=Asia/Shanghai date "+%Y%m%d%H%M")" >> $GITHUB_ENV
         echo "DEVICE=$(echo ${{ env.KERNEL_DEFCONFIG }} | sed 's!vendor/!!;s/_defconfig//;s/_user//;s/-perf//')" >> $GITHUB_ENV
         sudo apt-get update
-        sudo apt-get install git ccache automake flex lzop bison gperf build-essential zip curl zlib1g-dev g++-multilib libxml2-utils bzip2 libbz2-dev libbz2-1.0 libghc-bzlib-dev squashfs-tools pngcrush schedtool dpkg-dev liblz4-tool make optipng maven libssl-dev pwgen libswitch-perl policycoreutils minicom libxml-sax-base-perl libxml-simple-perl bc libc6-dev-i386 lib32ncurses5-dev libx11-dev lib32z-dev libgl1-mesa-dev xsltproc unzip device-tree-compiler python2 python3
+        sudo apt-get install git ccache automake flex lzop bison gperf build-essential zip curl zlib1g-dev g++-multilib libxml2-utils bzip2 libbz2-dev libbz2-1.0 libghc-bzlib-dev squashfs-tools pngcrush schedtool dpkg-dev liblz4-tool make optipng maven libssl-dev pwgen libswitch-perl policycoreutils minicom libxml-sax-base-perl libxml-simple-perl bc libc6-dev-i386 lib32ncurses5-dev libx11-dev lib32z-dev libgl1-mesa-dev xsltproc unzip device-tree-compiler python2 python3 ccache
 
     - name: Download Clang Toolchain
       run: |
-        mkdir clang
-        wget -q ${{ env.CLANG_URL }} -O clang.tar.gz
-        tar -C clang/ -zxf clang.tar.gz
+        git lfs clone -b ${{ env.CLANG_BRANCH }} --depth=1 ${{ env.CLANG_URL }} clang
 
     - name: Checkout Kernel Source
       uses: actions/checkout@v3
@@ -118,13 +115,8 @@ jobs:
         export ARCH=${{ env.TARGET_ARCH }}
         export SUBARCH=${{ env.TARGET_ARCH }}
         export KBUILD_COMPILER_STRING="$(clang --version | head -n 1 | perl -pe 's/\(http.*?\)//gs' | sed -e 's/  */ /g' -e 's/[[:space:]]*$//')"
-        export KBUILD_BUILD_HOST=GitHub-Action
-        export KBUILD_BUILD_USER=$(echo ${{ github.actor }} | tr A-Z a-z)
         make -j$(nproc --all) O=out ARCH=${{ env.TARGET_ARCH }} CC=clang ${{ env.KERNEL_DEFCONFIG }}
-
-    - name: SSH connection to Actions
-      uses: P3TERX/ssh2actions@v1.0.0
-      if: env.SSH == 'true'
+        sed -i 's/# CONFIG_SECCOMP is not set/CONFIG_SECCOMP=y/' ./out/.config
 
     - name: Build kernel
       run: |
@@ -133,10 +125,9 @@ jobs:
         export ARCH=${{ env.TARGET_ARCH }}
         export SUBARCH=${{ env.TARGET_ARCH }}
         export KBUILD_COMPILER_STRING="$(clang --version | head -n 1 | perl -pe 's/\(http.*?\)//gs' | sed -e 's/  */ /g' -e 's/[[:space:]]*$//')"
-        export KBUILD_BUILD_HOST=GitHub-Action
-        export KBUILD_BUILD_USER=$(echo ${{ github.actor }} | tr A-Z a-z)
         make -j$(nproc --all) O=out ARCH=arm64 savedefconfig
         cp -f out/defconfig arch/${{ env.TARGET_ARCH }}/configs/${{ env.KERNEL_DEFCONFIG }}
+        sudo ccache -M 100G
         make -j$(nproc --all) O=out ARCH=${{ env.TARGET_ARCH }} CC=clang CROSS_COMPILE=aarch64-linux-gnu- ${{ env.BUILD_EXTRA_COMMAND }}
 
     - name: Check the kernel output files
@@ -150,6 +141,11 @@ jobs:
            echo "CHECK_DTBO_IS_OK=true" >> $GITHUB_ENV
        else
            echo "DTBO image is empty"
+       fi
+              if [ -f android-kernel/out/arch/${{ env.TARGET_ARCH }}/boot/dtb ] ; then
+           echo "CHECK_DTB__IS_OK=true" >> $GITHUB_ENV
+       else
+           echo "DTB image is empty"
        fi
 
     - name: Upload the kernel image
@@ -165,6 +161,13 @@ jobs:
       with:
         name: dtbo-${{ env.DEVICE }}-${{ env.BUILD_TIME }}
         path: android-kernel/out/arch/${{ env.TARGET_ARCH }}/boot/dtbo.img
+        
+    - name: Upload DTB image
+      if: env.CHECK_DTB__IS_OK == 'true'
+      uses: actions/upload-artifact@v3
+      with:
+        name: dtb-${{ env.DEVICE }}-${{ env.BUILD_TIME }}
+        path: android-kernel/out/arch/${{ env.TARGET_ARCH }}/boot/dtb
 
     - name: Checkout osm0sis/AnyKernel3
       uses: actions/checkout@v3
@@ -185,10 +188,10 @@ jobs:
         if [ ${{ env.CHECK_DTBO_IS_OK }} = true ] ; then
             cp -fp ../android-kernel/out/arch/${{ env.TARGET_ARCH }}/boot/dtbo.img ./
         fi
-        cp -fp ../android-kernel/out/arch/${{ env.TARGET_ARCH }}/boot/dtb ./
-        cp -fp ../android-kernel/out/.config ./
-        cp -fp ../android-kernel/out/defconfig ./
-        rm -rf .git* modules patch ramdisk
+        if [ ${{ env.CHECK_DTB__IS_OK }} = true ] ; then
+            cp -fp ../android-kernel/out/arch/${{ env.TARGET_ARCH }}/boot/dtb ./
+        fi
+        rm -rf .git* modules patch ramdisk README.md LICENSE
 
     - name: Upload AnyKernel3
       if: env.CHECK_KERNEL_FILE_IS_OK == 'true'
