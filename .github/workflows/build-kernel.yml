@@ -16,10 +16,6 @@ on:
         description: 'Defconfig'
         required: true
         default: 'vendor/arrow_alioth_defconfig'
-      TARGET_ARCH:
-        description: 'Target ARCH'
-        required: true
-        default: 'arm64'
       KERNEL_FILE:
         description: 'Your kernel out image name'
         required: true
@@ -54,7 +50,6 @@ jobs:
         echo "KERNEL_SOURCE=${{ github.event.inputs.KERNEL_SOURCE }}" >> $GITHUB_ENV
         echo "KERNEL_SOURCE_BRANCH=${{ github.event.inputs.KERNEL_SOURCE_BRANCH }}" >> $GITHUB_ENV
         echo "KERNEL_DEFCONFIG=${{ github.event.inputs.KERNEL_DEFCONFIG }}" >> $GITHUB_ENV
-        echo "TARGET_ARCH=${{ github.event.inputs.TARGET_ARCH }}" >> $GITHUB_ENV
         echo "KERNEL_FILE=${{ github.event.inputs.KERNEL_FILE }}" >> $GITHUB_ENV
         echo "CLANG_URL=${{ github.event.inputs.CLANG_URL }}" >> $GITHUB_ENV
         echo "CLANG_BRANCH=${{ github.event.inputs.CLANG_BRANCH }}" >> $GITHUB_ENV
@@ -97,37 +92,37 @@ jobs:
       run: |
         cd android-kernel
         export PATH=$GITHUB_WORKSPACE/clang/bin:$PATH
-        export ARCH=${{ env.TARGET_ARCH }}
-        export SUBARCH=${{ env.TARGET_ARCH }}
+        export ARCH=arm64
+        export SUBARCH=arm64
         export KBUILD_COMPILER_STRING="$(clang --version | head -n 1 | perl -pe 's/\(http.*?\)//gs' | sed -e 's/  */ /g' -e 's/[[:space:]]*$//')"
-        make -j$(nproc --all) O=out ARCH=${{ env.TARGET_ARCH }} CC=clang ${{ env.KERNEL_DEFCONFIG }}
+        make -j$(nproc --all) O=out ARCH=arm64 CC=clang ${{ env.KERNEL_DEFCONFIG }}
         sed -i 's/# CONFIG_SECCOMP is not set/CONFIG_SECCOMP=y/' ./out/.config
 
     - name: Build kernel
       run: |
         cd android-kernel
         export PATH=$GITHUB_WORKSPACE/clang/bin:$PATH
-        export ARCH=${{ env.TARGET_ARCH }}
-        export SUBARCH=${{ env.TARGET_ARCH }}
+        export ARCH=arm64
+        export SUBARCH=arm64
         export KBUILD_COMPILER_STRING="$(clang --version | head -n 1 | perl -pe 's/\(http.*?\)//gs' | sed -e 's/  */ /g' -e 's/[[:space:]]*$//')"
         make -j$(nproc --all) O=out ARCH=arm64 savedefconfig
-        cp -f out/defconfig arch/${{ env.TARGET_ARCH }}/configs/${{ env.KERNEL_DEFCONFIG }}
+        cp -f out/defconfig arch/arm64/configs/${{ env.KERNEL_DEFCONFIG }}
         sudo ccache -M 100G
-        make -j$(nproc --all) O=out ARCH=${{ env.TARGET_ARCH }} CC=clang CROSS_COMPILE=aarch64-linux-gnu- ${{ env.BUILD_EXTRA_COMMAND }}
+        make -j$(nproc --all) O=out ARCH=arm64 CC=clang CROSS_COMPILE=aarch64-linux-gnu- ${{ env.BUILD_EXTRA_COMMAND }}
 
     - name: Check the kernel output files
       run: |
-       if [ -f android-kernel/out/arch/${{ env.TARGET_ARCH }}/boot/${{ env.KERNEL_FILE }} ] ; then
+       if [ -f android-kernel/out/arch/arm64/boot/${{ env.KERNEL_FILE }} ] ; then
            echo "CHECK_KERNEL_FILE_IS_OK=true" >> $GITHUB_ENV
        else
            echo "Kernel output file is empty"
        fi
-       if [ -f android-kernel/out/arch/${{ env.TARGET_ARCH }}/boot/dtbo.img ] ; then
+       if [ -f android-kernel/out/arch/arm64/boot/dtbo.img ] ; then
            echo "CHECK_DTBO_IS_OK=true" >> $GITHUB_ENV
        else
            echo "DTBO image is empty"
        fi
-              if [ -f android-kernel/out/arch/${{ env.TARGET_ARCH }}/boot/dtb ] ; then
+              if [ -f android-kernel/out/arch/arm64/boot/dtb ] ; then
            echo "CHECK_DTB__IS_OK=true" >> $GITHUB_ENV
        else
            echo "DTB image is empty"
@@ -138,21 +133,21 @@ jobs:
       uses: actions/upload-artifact@v3
       with:
         name: ${{ env.KERNEL_FILE }}${{ env.UPLOADNAME }}-${{ env.DEVICE }}-${{ env.BUILD_TIME }}
-        path: android-kernel/out/arch/${{ env.TARGET_ARCH }}/boot/${{ env.KERNEL_FILE }}
+        path: android-kernel/out/arch/arm64/boot/${{ env.KERNEL_FILE }}
 
     - name: Upload DTBO image
       if: env.CHECK_DTBO_IS_OK == 'true'
       uses: actions/upload-artifact@v3
       with:
         name: dtbo-${{ env.DEVICE }}-${{ env.BUILD_TIME }}
-        path: android-kernel/out/arch/${{ env.TARGET_ARCH }}/boot/dtbo.img
+        path: android-kernel/out/arch/arm64/boot/dtbo.img
         
     - name: Upload DTB image
       if: env.CHECK_DTB__IS_OK == 'true'
       uses: actions/upload-artifact@v3
       with:
         name: dtb-${{ env.DEVICE }}-${{ env.BUILD_TIME }}
-        path: android-kernel/out/arch/${{ env.TARGET_ARCH }}/boot/dtb
+        path: android-kernel/out/arch/arm64/boot/dtb
 
     - name: Checkout osm0sis/AnyKernel3
       uses: actions/checkout@v3
@@ -168,13 +163,13 @@ jobs:
         sed -i 's!block=/dev/block/platform/omap/omap_hsmmc.0/by-name/boot;!block=auto;!g' anykernel.sh
         sed -i 's/is_slot_device=0;/is_slot_device=auto;/g' anykernel.sh
         if [ ${{ env.CHECK_KERNEL_FILE_IS_OK }} = true ] ; then
-            cp -fp ../android-kernel/out/arch/${{ env.TARGET_ARCH }}/boot/${{ env.KERNEL_FILE }} ./
+            cp -fp ../android-kernel/out/arch/arm64/boot/${{ env.KERNEL_FILE }} ./
         fi
         if [ ${{ env.CHECK_DTBO_IS_OK }} = true ] ; then
-            cp -fp ../android-kernel/out/arch/${{ env.TARGET_ARCH }}/boot/dtbo.img ./
+            cp -fp ../android-kernel/out/arch/arm64/boot/dtbo.img ./
         fi
         if [ ${{ env.CHECK_DTB__IS_OK }} = true ] ; then
-            cp -fp ../android-kernel/out/arch/${{ env.TARGET_ARCH }}/boot/dtb ./
+            cp -fp ../android-kernel/out/arch/arm64/boot/dtb ./
         fi
         rm -rf .git* modules patch ramdisk README.md LICENSE
 
