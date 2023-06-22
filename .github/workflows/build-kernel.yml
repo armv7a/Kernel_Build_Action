@@ -16,10 +16,6 @@ on:
         description: 'Defconfig'
         required: true
         default: 'vendor/arrow_alioth_defconfig'
-      KERNEL_FILE:
-        description: 'Your kernel out image name'
-        required: true
-        default: 'Image'
       CLANG_URL:
         description: 'Clang URL'
         required: true
@@ -50,7 +46,6 @@ jobs:
         echo "KERNEL_SOURCE=${{ github.event.inputs.KERNEL_SOURCE }}" >> $GITHUB_ENV
         echo "KERNEL_SOURCE_BRANCH=${{ github.event.inputs.KERNEL_SOURCE_BRANCH }}" >> $GITHUB_ENV
         echo "KERNEL_DEFCONFIG=${{ github.event.inputs.KERNEL_DEFCONFIG }}" >> $GITHUB_ENV
-        echo "KERNEL_FILE=${{ github.event.inputs.KERNEL_FILE }}" >> $GITHUB_ENV
         echo "CLANG_URL=${{ github.event.inputs.CLANG_URL }}" >> $GITHUB_ENV
         echo "CLANG_BRANCH=${{ github.event.inputs.CLANG_BRANCH }}" >> $GITHUB_ENV
         echo "BUILD_EXTRA_COMMAND=${{ github.event.inputs.BUILD_EXTRA_COMMAND }}" >> $GITHUB_ENV
@@ -112,8 +107,18 @@ jobs:
 
     - name: Check the kernel output files
       run: |
-       if [ -f android-kernel/out/arch/arm64/boot/${{ env.KERNEL_FILE }} ] ; then
+       if [ -f android-kernel/out/arch/arm64/boot/Image ] ; then
            echo "CHECK_KERNEL_FILE_IS_OK=true" >> $GITHUB_ENV
+           echo "KERNEL_FILE=Image" >> $GITHUB_ENV
+       elif [ -f android-kernel/out/arch/arm64/boot/Image.gz ] ; then
+           echo "CHECK_KERNEL_FILE_IS_OK=true" >> $GITHUB_ENV
+           echo "KERNEL_FILE=Image.gz" >> $GITHUB_ENV
+       elif [ -f android-kernel/out/arch/arm64/boot/Image-dtb ] ; then
+           echo "CHECK_KERNEL_FILE_IS_OK=true" >> $GITHUB_ENV
+           echo "KERNEL_FILE=Image-dtb" >> $GITHUB_ENV
+       elif [ -f android-kernel/out/arch/arm64/boot/Image.gz-dtb ] ; then
+           echo "CHECK_KERNEL_FILE_IS_OK=true" >> $GITHUB_ENV
+           echo "KERNEL_FILE=Image.gz-dtb" >> $GITHUB_ENV
        else
            echo "Kernel output file is empty"
        fi
