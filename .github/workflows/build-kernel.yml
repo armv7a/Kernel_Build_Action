@@ -7,15 +7,15 @@ on:
       KERNEL_SOURCE:
         description: 'Kernel Source'
         required: true
-        default: 'ArrowOS-MiPa-Edition/android_kernel_xiaomi_alioth'
+        default: 'VoidUI-Devices/kernel_xiaomi_sm8250'
       KERNEL_SOURCE_BRANCH:
         description: 'Branch'
         required: true
-        default: 'arrow-13.0'
+        default: 'aosp-13'
       KERNEL_DEFCONFIG:
         description: 'Defconfig'
         required: true
-        default: 'vendor/arrow_alioth_defconfig'
+        default: 'alioth_defconfig'
       CLANG_URL:
         description: 'Clang URL'
         required: true
