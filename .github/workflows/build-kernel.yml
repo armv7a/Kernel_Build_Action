@@ -96,6 +96,7 @@ jobs:
             else
                 echo "KernelSU Patching failed"
             fi
+        fi
 
     - name: Generate kernel configuration
       run: |
