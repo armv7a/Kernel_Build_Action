@@ -28,6 +28,11 @@ on:
         description: 'Extra build commands(e.g. LLVM=1 LLVM_IAS=1)'
         required: false
         default: 'NM=llvm-nm OBJDUMP=llvm-objdump STRIP=llvm-strip'
+      USE_KPROBES:
+        description: 'Use Kprobes'
+        required: false
+        default: 'false'
+        type: boolean
       USE_KERNELSU:
         description: 'Use KernelSU'
         required: true
@@ -49,6 +54,7 @@ jobs:
         echo "CLANG_URL=${{ github.event.inputs.CLANG_URL }}" >> $GITHUB_ENV
         echo "CLANG_BRANCH=${{ github.event.inputs.CLANG_BRANCH }}" >> $GITHUB_ENV
         echo "BUILD_EXTRA_COMMAND=${{ github.event.inputs.BUILD_EXTRA_COMMAND }}" >> $GITHUB_ENV
+        echo "USE_KPROBES=${{ github.event.inputs.USE_KPROBES }}" >> $GITHUB_ENV
         echo "USE_KERNELSU=${{ github.event.inputs.USE_KERNELSU }}" >> $GITHUB_ENV
 
     - name: Setup build kernel environment
@@ -75,6 +81,14 @@ jobs:
       if: env.USE_KERNELSU == 'true'
       run: |
         cd android-kernel
+        if [ ${{ env.USE_KPROBES }} = true ] ; then
+            echo "CONFIG_MODULES=y" >> arch/arm64/configs/${{ env.KERNEL_DEFCONFIG }}
+            echo "CONFIG_KPROBES=y" >> arch/arm64/configs/${{ env.KERNEL_DEFCONFIG }}
+            echo "CONFIG_HAVE_KPROBES=y" >> arch/arm64/configs/${{ env.KERNEL_DEFCONFIG }}
+            echo "CONFIG_KPROBE_EVENTS=y" >> arch/arm64/configs/${{ env.KERNEL_DEFCONFIG }}
+            curl -LSs "https://raw.githubusercontent.com/tiann/KernelSU/main/kernel/setup.sh" | bash -
+            echo "UPLOADNAME=-KernelSU" >> $GITHUB_ENV
+        else
             if git apply --check ../KernelSU.patch ; then
                 git apply ../KernelSU.patch
                 curl -LSs "https://raw.githubusercontent.com/tiann/KernelSU/main/kernel/setup.sh" | bash -
