@@ -7,32 +7,19 @@ on:
       KERNEL_SOURCE:
         description: 'Kernel Source'
         required: true
-        default: 'VoidUI-Devices/kernel_xiaomi_sm8250'
+        default: 'Farizmaul/Android_kernel_xiaomi_alioth'
       KERNEL_SOURCE_BRANCH:
         description: 'Branch'
         required: true
-        default: 'aosp-13'
+        default: 'lineage-21'
       KERNEL_DEFCONFIG:
         description: 'Defconfig'
         required: true
-        default: 'alioth_defconfig'
-      CLANG_URL:
-        description: 'Clang URL'
-        required: true
-        default: 'https://codeberg.org/Mandi-Sa/clang'
-      CLANG_BRANCH:
-        description: 'Clang BRANCH'
-        required: true
-        default: 'amd64-kernel-arm'
+        default: 'vendor/alioth_user_defconfig'
       BUILD_EXTRA_COMMAND:
         description: 'Extra build commands(e.g. LLVM=1 LLVM_IAS=1)'
         required: false
         default: 'NM=llvm-nm OBJDUMP=llvm-objdump STRIP=llvm-strip'
-      USE_KPROBES:
-        description: 'Use Kprobes'
-        required: false
-        default: 'false'
-        type: boolean
       USE_KERNELSU:
         description: 'Use KernelSU'
         required: true
@@ -66,7 +53,8 @@ jobs:
 
     - name: Download Clang Toolchain
       run: |
-        git lfs clone -b ${{ env.CLANG_BRANCH }} --depth=1 ${{ env.CLANG_URL }} clang
+        wget "$(curl -s https://raw.githubusercontent.com/XSans0/WeebX-Clang/main/main/link.txt)" -O "weebx-clang.tar.gz"
+        rm -rf clang && mkdir clang && tar -xvf weebx-clang.tar.gz -C clang && rm -rf weebx-clang.tar.gz
 
     - name: Checkout Kernel Source
       uses: actions/checkout@v3
@@ -81,22 +69,8 @@ jobs:
       if: env.USE_KERNELSU == 'true'
       run: |
         cd android-kernel
-        if [ ${{ env.USE_KPROBES }} = true ] ; then
-            echo "CONFIG_MODULES=y" >> arch/arm64/configs/${{ env.KERNEL_DEFCONFIG }}
-            echo "CONFIG_KPROBES=y" >> arch/arm64/configs/${{ env.KERNEL_DEFCONFIG }}
-            echo "CONFIG_HAVE_KPROBES=y" >> arch/arm64/configs/${{ env.KERNEL_DEFCONFIG }}
-            echo "CONFIG_KPROBE_EVENTS=y" >> arch/arm64/configs/${{ env.KERNEL_DEFCONFIG }}
-            curl -LSs "https://raw.githubusercontent.com/tiann/KernelSU/main/kernel/setup.sh" | bash -
-            echo "UPLOADNAME=-KernelSU" >> $GITHUB_ENV
-        else
-            if git apply --check ../KernelSU.patch ; then
-                git apply ../KernelSU.patch
-                curl -LSs "https://raw.githubusercontent.com/tiann/KernelSU/main/kernel/setup.sh" | bash -
-                echo "UPLOADNAME=-KernelSU" >> $GITHUB_ENV
-            else
-                echo "KernelSU Patching failed"
-            fi
-        fi
+        curl -LSs "https://raw.githubusercontent.com/backslashxx/KernelSU/refs/heads/legacy/kernel/setup.sh" | bash -
+        echo "UPLOADNAME=-KernelSU" >> $GITHUB_ENV
 
     - name: Generate kernel configuration
       run: |
